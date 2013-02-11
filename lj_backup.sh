@@ -48,12 +48,15 @@ backup()
 		for event in ${!id_events_*}; do
 			id=${event/id_events_/}
 			eventtime=events_${id}_eventtime
-			echo "id=$id, eventtime: ${!eventtime}"
+			echo "itemid=${!event}, eventtime: ${!eventtime}"
 			pre=events_${id}_
 			eval "vars=\${!$pre*}"
-			for var in $vars; do
-				echo ${var#$pre}=\"${!var}\"
-			done > "$root/${!eventtime}.sh" 
+			{
+				echo "itemid=${!event}"
+				for var in $vars; do
+					echo ${var#$pre}=\"${!var}\"
+				done
+			}	> "$root/${!eventtime}.sh" 
 			[[ -n "${!eventtime}" && "x$min_date" > "x${!eventtime}" ]] && min_date=${!eventtime}
 			ln -f "$root/${!eventtime}.sh" "$root/${!event}.ln"
 		done
@@ -86,7 +89,8 @@ restore()
 	[ -n "$g_security" ] && security=$g_security
 	[ -n "$allowmask" ] && allowmask="allowmask=$allowmask&"
 	props=$(for prop in ${!prop_*}; do
-			printf %s "&${prop/prop_/}=${!prop}"
+	printf '&'
+			printf %s "$prop=${!prop}" | sed 's/&/%26/g' 
 	done)
 	post_data="$auth&mode=postevent&subject=$subject&event=$event&security=$security&$allowmask`date -d "$eventtime" +'year=%Y&mon=%-m&day=%-d&hour=%-H&min=%-M'`$usejournal$props"
 	eval $(wget -q -O - --post-data="$post_data" $server/interface/flat | my_sed)
@@ -115,7 +119,7 @@ delete()
 			{
 				url=${itemid/id_events_/url_}
 				#login $1 $2
-				echo Deleting url=$url...
+				echo Deleting url=${!url}...
 				eval $(wget -q -O - --post-data "$auth&security=public&mode=editevent&event=&ver=1&itemid=${!itemid}$usejournal" $server/interface/flat | my_sed)
 				if [ "x$success" != "xOK" ]; then
 					echo "Error occured: $errmsg when deleting ${!url} (itemid=${itemid})"
